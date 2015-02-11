@@ -1,0 +1,23 @@
+K 25
+svn:wc:ra_dav:version-url
+V 31
+/svn/doomsday/!svn/ver/4/client
+END
+client.php
+K 25
+svn:wc:ra_dav:version-url
+V 42
+/svn/doomsday/!svn/ver/1/client/client.php
+END
+telnetcls.pl
+K 25
+svn:wc:ra_dav:version-url
+V 44
+/svn/doomsday/!svn/ver/4/client/telnetcls.pl
+END
+irccls.pl
+K 25
+svn:wc:ra_dav:version-url
+V 41
+/svn/doomsday/!svn/ver/3/client/irccls.pl
+END
