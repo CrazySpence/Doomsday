@@ -24,10 +24,10 @@ my $STARTY;
 #OPTIONS
 my %DB_OPTIONS = (
              #   DB_SOCK => "/path/to/database.sock",
-                 DB_HOST => "server.host",
+                 DB_HOST => "localhost",
                  DB_PORT => 3306,
                  DB_USER => "doomsday",
-                 DB_PASS => "doomsday",
+                 DB_PASS => "partytime",
                  DB_DB   => "doomsday"                 
                  );
 
@@ -7467,7 +7467,7 @@ sub endgame
    }
 
    #unregister all players
-   $query = $SQL->prepare('SELECT id FROM player');
+   $query = $SQL->prepare('SELECT id FROM player WHERE active=1');
    $query->execute();
 
    while($row = $query->fetchrow_hashref())
