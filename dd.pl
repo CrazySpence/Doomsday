@@ -3402,6 +3402,8 @@ sub cmd_sendmail #\id, parv
    my $msg; 
    my $row;   
    
+   //FIXME
+   return;
    $query = $SQL->prepare("SELECT email FROM player WHERE id=?");
    $query->execute($id);
 
