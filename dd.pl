@@ -24,11 +24,11 @@ my $STARTY;
 #OPTIONS
 my %DB_OPTIONS = (
              #   DB_SOCK => "/path/to/database.sock",
-                 DB_HOST => "some.host",
+                 DB_HOST => "localhost",
                  DB_PORT => 3306,
-                 DB_USER => "doomsday",
-                 DB_PASS => "password",
-                 DB_DB   => "db"                 
+                 DB_USER => "doomsdaytest",
+                 DB_PASS => "doomsdaytest",
+                 DB_DB   => "doomsdaytest"                 
                  );
 
 #GAME OPTIONS
@@ -86,7 +86,7 @@ my @AIHARD   = (1, 2, 3, 4, 5, 8  ,10 ,9 ,-1);
 #command array
 my @CMDS =    (
       #Administrator
-      {cmd => 'mapregen' ,  lg => 1, mp => -1, est => 0, quest =>  0, param => 0,   handler => \&dd_mapgen     },
+      {cmd => 'mapregen' ,  lg => 1, mp => -1, est => 0, quest =>  0, param => 0,   handler => \&quest_mapregen     },
       {cmd => 'events'   ,  lg => 1, mp => -1, est => 0, quest => -1, param => 0,   handler => \&cmd_events    }, 
       {cmd => 'shutdown' ,  lg => 1, mp => -1, est => 0, quest => -1, param => 0,   handler => \&cmd_shutdown  },
       {cmd => 'add_ai'   ,  lg => 1, mp => -1, est => 0, quest => -1, param => 1,   handler => \&cmd_add_ai    },
@@ -241,7 +241,7 @@ sub quest_go
       $$source{xcords} = $$source{xcords} + $xmove;
       $$source{ycords} = $$source{ycords} + $ymove;
       player_msg($source,sprintf("You moved %s without incident (%s,%s)",$$message[1],$$source{xcords},$$source{ycords}));
-      $query = $SQL->prepare("SELECT * FROM quest_log WHERE player_id=? AND x=? AND y=?
+      $query = $SQL->prepare("SELECT * FROM quest_log WHERE player_id=? AND x=? AND y=?");
       $query->execute($$source{id},$$source{xcords},$$source{ycords});
       if(!$query->rows()) { #player hasn't been to this square, they get an event chance
          if (rand(100) < 10) {
@@ -399,6 +399,22 @@ sub quest_reward {
    $query = $SQL->prepare('TRUNCATE quest_log');
    $query->execute();
    return 1;
+}
+
+sub quest_mapregen {
+   #admin user forces map regen which clears quest log and resets quest flags ontop of making new map
+   my $query;
+
+   dd_mapgen();
+   global_msg("A new map has been generated for the raid");
+   $query = $SQL->prepare('UPDATE player SET flags=replace(flags, "quest", "")');
+   $query->execute();
+
+   #empty current quest log
+   $query = $SQL->prepare('TRUNCATE quest_log');
+   $query->execute();
+   return 1;
+   
 }
 
 sub sql_checkplayers {
@@ -3402,8 +3418,6 @@ sub cmd_sendmail #\id, parv
    my $msg; 
    my $row;   
    
-   //FIXME
-   return;
    $query = $SQL->prepare("SELECT email FROM player WHERE id=?");
    $query->execute($id);
 
