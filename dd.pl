@@ -24,11 +24,11 @@ my $STARTY;
 #OPTIONS
 my %DB_OPTIONS = (
              #   DB_SOCK => "/path/to/database.sock",
-                 DB_HOST => "localhost",
+                 DB_HOST => "somehost",
                  DB_PORT => 3306,
-                 DB_USER => "doomsdaytest",
-                 DB_PASS => "doomsdaytest",
-                 DB_DB   => "doomsdaytest"                 
+                 DB_USER => "someuser",
+                 DB_PASS => "somepass",
+                 DB_DB   => "somedb"                 
                  );
 
 #GAME OPTIONS
