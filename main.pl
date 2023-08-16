@@ -16,8 +16,8 @@ use Socket;
 use IO::Select;
 use IO::Socket::INET;
 
-require "log.pl";
-require "dd.pl";
+require "./log.pl";
+require "./dd.pl";
 
 my %OPTIONS = ( 
                 DD_BUILD  => "1.5.1",
@@ -145,6 +145,24 @@ sub server_recieve #\$handle,$data
                push @CPOOL, \%source;
             }
  
+          }
+	  if ($message[2] eq "40COL") {
+              #40col client, game will try and cut back the width of output
+	      print("CLIENT -> Set 40 col mode\n");
+	      foreach $pool (@CPOOL)
+	      {
+                  if ($$pool{handle} == $handle) {
+	              $$pool{cbm} = 1;
+		      print("40col set\n");
+		  }
+	      }
+	      if(!$pool) {
+                  $source{handle} = $handle;
+		  $source{cbm} = 1;
+		  print("40col set new\n");
+		  push @CPOOL, \%source;
+	      }
+
           }
       }
    }
@@ -310,7 +328,7 @@ sub global_msg #\$msg
     send($handle, "GLOBAL " . $msg . "\n", 0);
    }
    sql_global_sessionlog($msg);
-   sql_log("-1",'GLOBAL',$msg);
+   sql_log("0",'GLOBAL',$msg);
 } 
 
 sub register_player #\%source

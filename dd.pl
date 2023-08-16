@@ -24,11 +24,11 @@ my $STARTY;
 #OPTIONS
 my %DB_OPTIONS = (
              #   DB_SOCK => "/path/to/database.sock",
-                 DB_HOST => "somehost",
+                 DB_HOST => "localhost",
                  DB_PORT => 3306,
-                 DB_USER => "someuser",
-                 DB_PASS => "somepass",
-                 DB_DB   => "somedb"                 
+                 DB_USER => "doomsday",
+                 DB_PASS => "",
+                 DB_DB   => "doomsday"                 
                  );
 
 #GAME OPTIONS
@@ -86,7 +86,7 @@ my @AIHARD   = (1, 2, 3, 4, 5, 8  ,10 ,9 ,-1);
 #command array
 my @CMDS =    (
       #Administrator
-      {cmd => 'mapregen' ,  lg => 1, mp => -1, est => 0, quest =>  0, param => 0,   handler => \&quest_mapregen     },
+      {cmd => 'mapregen' ,  lg => 1, mp => -1, est => 0, quest =>  0, param => 0,   handler => \&dd_mapgen     },
       {cmd => 'events'   ,  lg => 1, mp => -1, est => 0, quest => -1, param => 0,   handler => \&cmd_events    }, 
       {cmd => 'shutdown' ,  lg => 1, mp => -1, est => 0, quest => -1, param => 0,   handler => \&cmd_shutdown  },
       {cmd => 'add_ai'   ,  lg => 1, mp => -1, est => 0, quest => -1, param => 1,   handler => \&cmd_add_ai    },
@@ -96,6 +96,7 @@ my @CMDS =    (
       {cmd => 'say'      ,  lg => 1, mp => -1, est => 0, quest => -1, param => 1,   handler => \&cmd_say       },
       {cmd => 'msg'      ,  lg => 1, mp => -1, est => 0, quest => -1, param => 2,   handler => \&cmd_msg       },
       #Main game
+      {cmd => '40col'    ,  lg => 0, mp => 0,  est => 0, quest => 0,  param => 0,   handler => \&cmd_40col     },
       {cmd => 'advice'   ,  lg => 1, mp => 4,  est => 0, quest => 0,  param => 1,   handler => \&cmd_advise    },
       {cmd => 'advise'   ,  lg => 1, mp => 4,  est => 0, quest => 0,  param => 1,   handler => \&cmd_advise    },
       {cmd => 'allocate' ,  lg => 1, mp => 1,  est => 0, quest => 0,  param => 2,   handler => \&cmd_allocate  },
@@ -135,7 +136,6 @@ my @CMDS =    (
       {cmd => 'recall'   ,  lg => 1, mp => 15, est => 1, quest => 0,  param => 0,   handler => \&cmd_recall    },
       {cmd => 'setemail' ,  lg => 1, mp => 0 , est => 0, quest => -1, param => 1,   handler => \&cmd_setemail  },
       {cmd => 'formation',  lg => 1, mp => 3 , est => 0, quest => 0,  param => 1,   handler => \&cmd_formation },
-      {cmd => 'lotto'    ,  lg => 1, mp => 3 , est => 0, quest => 0,  param => 1,   handler => \&cmd_lotto     },
       #Quest commands
       {cmd => 'go'       ,  lg => 1, mp => 0 , est => 0, quest => 1,  param => 1,   handler => \&quest_go      },
       {cmd => 'raid'     ,  lg => 1, mp => 12, est => 0, quest => -1, param => 1,   handler => \&quest_raid    },
@@ -174,7 +174,7 @@ sub quest_raid
    }
    
    set_flag($$source{id},'quest');
-   player_msg($source,"You enter uncharted territory, hoping to find something of value for your nation. Hopefully you return....Alive!");
+   player_msg($source,"You infilrate the base, hoping to find something of value inside. Hopefully you escape....Alive!");
    $query = $SQL->prepare("UPDATE player SET took_quest='1' WHERE id = ?");
    $query->execute($$source{id});
    $$source{xcords} = $STARTX;
@@ -241,15 +241,6 @@ sub quest_go
       $$source{xcords} = $$source{xcords} + $xmove;
       $$source{ycords} = $$source{ycords} + $ymove;
       player_msg($source,sprintf("You moved %s without incident (%s,%s)",$$message[1],$$source{xcords},$$source{ycords}));
-      $query = $SQL->prepare("SELECT * FROM quest_log WHERE player_id=? AND x=? AND y=?");
-      $query->execute($$source{id},$$source{xcords},$$source{ycords});
-      if(!$query->rows()) { #player hasn't been to this square, they get an event chance
-         if (rand(100) < 10) {
-            #random event
-            hk_event($$source{id});
-         } 
-      }
-      quest_log($source);
    }
    
    if ($action == 3 ) {
@@ -262,14 +253,12 @@ sub quest_go
       $$source{xcords} = $$source{xcords} + $xmove;
       $$source{ycords} = $$source{ycords} + $ymove;
       player_msg($source,sprintf("You managed to go back to the start *slow clap* (%s,%s)",$$source{xcords},$$source{ycords}));
-      quest_log($source);
    }
    if ($action == 4) {
       $$source{xcords} = $$source{xcords} + $xmove;
       $$source{ycords} = $$source{ycords} + $ymove;
       player_msg($source,sprintf("Oh no.....a TRAP! (%s,%s)",$$source{xcords},$$source{ycords}));
       quest_trap($source);
-      quest_log($source);
       return;
    }
    if ($action == 0 ) {
@@ -292,17 +281,6 @@ sub quest_go
    
    sql_checkplayers($source,0);
    return 1;
-}
-
-sub quest_log {
-   #log places the player has been
-   my $query;
-   my $row;
-   my $source = $_[0];
-   
-   $query = $SQL->prepare("INSERT INTO quest_log SET player_id=?,x=?,y=?");
-   $query->execute($$source{id},$$source{xcords},$$source{ycords});
-
 }
 
 sub quest_trap {
@@ -395,26 +373,7 @@ sub quest_reward {
    $query = $SQL->prepare('UPDATE player SET flags=replace(flags, "quest", "")');
    $query->execute();
    
-   #empty current quest log
-   $query = $SQL->prepare('TRUNCATE quest_log');
-   $query->execute();
    return 1;
-}
-
-sub quest_mapregen {
-   #admin user forces map regen which clears quest log and resets quest flags ontop of making new map
-   my $query;
-
-   dd_mapgen();
-   global_msg("A new map has been generated for the raid");
-   $query = $SQL->prepare('UPDATE player SET flags=replace(flags, "quest", "")');
-   $query->execute();
-
-   #empty current quest log
-   $query = $SQL->prepare('TRUNCATE quest_log');
-   $query->execute();
-   return 1;
-   
 }
 
 sub sql_checkplayers {
@@ -1141,6 +1100,16 @@ sub cmd_msg
 #                              COMMAND HANDLING FUNCTIONS                                 #
 ###########################################################################################
 
+#manual 40 col toggle
+sub cmd_40col
+{
+   my $parv   = $_[0];
+   my $source = $_[1];
+   
+   $$source{cbm} = 1;
+   
+   return;
+}
 
 # cmd_newplayer
 #
@@ -1186,7 +1155,7 @@ sub cmd_newplayer #\@parv, \%source
              }
          }
       } else {
-         $password = sprintf('None%d',int(rand 9999));
+         $password = sprintf('none%d',int(rand 9999));
 
          player_msg($source, "Your password is $password. Please write it down. " . 
                     "You can change it later with the password command.");
@@ -2821,7 +2790,7 @@ sub cmd_help #\@parv, \%source
 
    push @help, (split /\n/ ,$$row{help}); 
 
-   local($Text::Wrap::columns) = 50;
+   local($Text::Wrap::columns) = 40;
    
    foreach $help (@help)
    {
@@ -2931,7 +2900,11 @@ sub cmd_inbox {
        $table = new Text::ASCIITable;
        $table->setCols(['From','Message']);
        $table->setOptions('headingText', 'Inbox');
-       $table->setColWidth('Message', 48, 1);
+       if($$source{cbm}) {
+           $table->setColWidth('Message', 20, 1);
+       } else {
+           $table->setColWidth('Message', 48, 1);
+       }
        do {
            $table->addRow($$row{from_player},$$row{message});
        } while($row = $query->fetchrow_hashref()); 
@@ -3153,7 +3126,7 @@ sub cmd_list #\%source
 
 
    #fetch 5 players above us
-   $query = $SQL->prepare('SELECT id,land FROM player WHERE player.land > ? AND player.id != ? AND active=1 ORDER BY player.land DESC');
+   $query = $SQL->prepare('SELECT id,land,nick FROM player WHERE player.land > ? AND player.id != ? AND active=1 ORDER BY player.land DESC');
    $query->execute($$player{land}, $$source{id});
 
    if($above = $query->rows())
@@ -3167,22 +3140,33 @@ sub cmd_list #\%source
       }
       while($row = $query->fetchrow_hashref())
       {
-         $table->addRow(sql_gettitlecountry($$row{id}), $$row{land}); 
+          if($$source{cbm}) {
+              $table->addRow($$row{nick}, $$row{land})
+          } else {
+              $table->addRow(sql_gettitlecountry($$row{id}), $$row{land}); 
+          }
       } 
    }
-
-   $table->addRow(sql_gettitlecountry($$source{id}), $$player{land});
-
+   
+   if($$source{cbm}) {
+       $table->addRow($$player{nick}, $$player{land});
+   } else {
+       $table->addRow(sql_gettitlecountry($$source{id}), $$player{land});
+   }
    #fetch X players below, where X would complete the 10
    $above = 5 + (5 - $above);
-   $query = $SQL->prepare('SELECT id,land FROM player WHERE player.land <= ? AND player.id != ? AND active=1 ORDER BY player.land DESC LIMIT ?');
+   $query = $SQL->prepare('SELECT id,land,nick FROM player WHERE player.land <= ? AND player.id != ? AND active=1 ORDER BY player.land DESC LIMIT ?');
    $query->execute($$player{land},$$source{id},$above);
 
    if($query->rows())
    {
       while($row = $query->fetchrow_hashref())
       {
-         $table->addRow(sql_gettitlecountry($$row{id}), $$row{land});
+          if($$source{cbm}) {
+              $table->addRow($$row{nick}, $$row{land})
+          } else {
+              $table->addRow(sql_gettitlecountry($$row{id}), $$row{land}); 
+          }
       }
    }
 
@@ -3321,22 +3305,7 @@ sub cmd_login #\@parv, \%source
    return 1;
 }
 
-# cmd_lotto
-#
-# lotto <1-10>
 
-sub cmd_lotto #\@parv, \%source
-{
-   #for $1000 player gets entered into a jackpot with their number between 1-10
-   #jackpot starts at 10k and increases per 1k played + 5k from the system + autogenerated market profits later on in game
-   
-   my $luckyNumber = $_[0];
-   my $source      = $_[1];
-   my $query;
-   my $row;
-   
-  
-}
 
 # cmd_password
 #
@@ -3417,7 +3386,8 @@ sub cmd_sendmail #\id, parv
    my $query;
    my $msg; 
    my $row;   
-   
+
+   return;   
    $query = $SQL->prepare("SELECT email FROM player WHERE id=?");
    $query->execute($id);
 
@@ -3522,16 +3492,16 @@ sub cmd_report #\@parv, \%source
    }
    else
    {
-      player_msg($source, 'REPORT ACHIEVEMENT - View Achievements');
-      player_msg($source, 'REPORT GENERAL     - General report');
-      player_msg($source, 'REPORT INDUSTRY    - Factory/Worker report');
-      player_msg($source, 'REPORT LAND        - Structure/building report');
+      player_msg($source, 'REPORT ACHIEVEMENT - See Achievements ');
+      player_msg($source, 'REPORT GENERAL     - General Report');
+      player_msg($source, 'REPORT INDUSTRY    - Factory/Workers');
+      player_msg($source, 'REPORT LAND        - Building usage');
       player_msg($source, 'REPORT MARKET      - Market Report');
-      player_msg($source, 'REPORT RESEARCH    - Research tree/allocation report');
-      player_msg($source, 'REPORT SPACE       - Report on space units');
+      player_msg($source, 'REPORT RESEARCH    - Research/alloc');
+      player_msg($source, 'REPORT SPACE       - Units in space');
       player_msg($source, 'REPORT TECH        - Technology report');
-      player_msg($source, 'REPORT UNITS       - Military/unit report');
-      player_msg($source, 'REPORT WINNERS     - Show previous game winners');
+      player_msg($source, 'REPORT UNITS       - Army unit report');
+      player_msg($source, 'REPORT WINNERS     - Show game winners');
       return 0;
    } 
 
@@ -3556,8 +3526,10 @@ sub cmd_report_achievement
 	$table->setOptions('headingText','Achievements');
 	$table->setCols(['Name','Description']);
 	$table->alignCol('Name','Left');
-	$table->setColWidth('Description', 48, 1);
-	
+	$table->setColWidth('Description', 15);
+	if($$source{cbm}) {
+        $table->setColWidth('Name',15);
+    }
 	while($row = $query->fetchrow_hashref())
 	{
 		$table->addRow($$row{name},$$row{description});
@@ -3694,13 +3666,20 @@ sub cmd_report_industry
    }
 
    $table = new Text::ASCIITable;
-   $table->setCols(['Factory', '#', 'Product',  'Workers', '0-Fav Est', 'Build']);
+
+   if($$source{cbm}) {
+       $table->setCols(['Factory', '#', 'Product',  'Workers']);
+       $table->setColWidth('Factory',10);
+       $table->setColWidth('Workers',7);
+       $table->setColWidth('Product',8);
+   } else {
+       $table->setCols(['Factory', '#', 'Product',  'Workers', '0-Fav', 'Build']);
+       $table->alignCol('0-Fav', 'right');
+       $table->alignCol('Build', 'right');
+   }
    $table->setOptions('headingText', 'Industry');
    $table->alignCol('#', 'right');
    $table->alignCol('Workers', 'right');
-   $table->alignCol('0-Fav Est', 'right');
-   $table->alignCol('Build', 'right');
-
    while($factory = $query->fetchrow_hashref())
    {
       $query2 = $SQL->prepare('SELECT build FROM unit WHERE unit_id=? AND player_id=?');
@@ -3709,18 +3688,29 @@ sub cmd_report_industry
       if($query2->rows())
       {
          $unit = $query2->fetchrow_hashref();
- 
-         $table->addRow($$factory{name}, $$factory{amount}, $$factory{productname}, 
+         if($$source{cbm}) {
+             $table->addRow($$factory{name}, $$factory{amount}, $$factory{productname}, 
+                     sprintf('%d/%d',$$factory{workers}, $$factory{size} * $$factory{amount})
+                     );
+         } else {
+             $table->addRow($$factory{name}, $$factory{amount}, $$factory{productname}, 
                      sprintf('%d/%d',$$factory{workers}, $$factory{size} * $$factory{amount}),
                      sprintf('%.2f/HK', $$factory{workers} / $$factory{productcost}),
                      sprintf('%.2f%%', 100 * ($$unit{build}/$$factory{productcost})) );
+         }
       }
       else
       {
-         $table->addRow($$factory{name}, $$factory{amount}, $$factory{productname},
+           if($$source{cbm}) {
+               $table->addRow($$factory{name}, $$factory{amount}, $$factory{productname}, 
+                     sprintf('%d/%d',$$factory{workers}, $$factory{size} * $$factory{amount})
+                     );
+           } else {
+               $table->addRow($$factory{name}, $$factory{amount}, $$factory{productname},
                      sprintf('%d/%d',$$factory{workers}, $$factory{size} * $$factory{amount}),
                      sprintf('%.2f/HK', $$factory{workers} / $$factory{productcost}),
                      '0%');
+           }
       }
    }
 
@@ -3752,11 +3742,13 @@ sub cmd_report_land
    #good to go, make a table
    $table = new Text::ASCIITable;
 
-   $table->setCols(['Structure', 'Amount', 'Land Use']);
+   $table->setCols(['Structure', 'Amt', 'Land Use']);
    $table->setOptions('headingText', 'Structures');
-   $table->alignCol('Amount', 'right');
+   $table->alignCol('Amt', 'right');
    $table->alignCol('Land Use', 'right');
-
+   if($$source{cbm}) {
+        $table->setColWidth('Structure',15);
+    }
    while($row = $query->fetchrow_hashref())
    {
       $table->addRow($$row{name}, $$row{amount}, $$row{landuse} . ' acres');
@@ -3773,16 +3765,19 @@ sub cmd_report_research
 
    my $table;
    my $scientists;
-
+   print ($$source{cbm});
    $table = new Text::ASCIITable;
    
-   $table->setCols(['Topic', 'LVL', 'ALC', 'ETA (HKs)']);
+   $table->setCols(['Topic', 'LVL', 'ALC', 'HK']);
    $table->setOptions('headingText', 'Research');
    $table->alignCol('LVL', 'right');
    $table->alignCol('ALC', 'right');
-   $table->alignCol('ETA (HKs)', 'right');;
-
+   $table->alignCol('HK', 'right');;
+   if($$source{cbm}) {
+        $table->setColWidth('Topic',14);
+   }
    #get scientist count
+  
    $query = $SQL->prepare('SELECT scientists FROM player WHERE id=?');
    $query->execute($$source{id});
    $row = $query->fetchrow_hashref();
@@ -3873,7 +3868,11 @@ sub research_line #$source, \%topic, $table, $depth, $last, $scientists
 
   
          #format ETA
-         $eta = sprintf('%d HK(s)', $eta);
+         if($$source{cbm}) {
+             $eta = sprintf('%d', $eta);
+         } else {
+             $eta = sprintf('%d HK(s)',$eta);
+         }
       }
       else
       {
@@ -3944,11 +3943,14 @@ sub cmd_report_tech
    }
 
    $table = new Text::ASCIITable;
-   $table->setCols(['Name', 'Stats/Size', 'Cost/Wage']);
-   $table->alignCol('Cost/Wage', 'right');
-   $table->alignCol('Stats/Size', 'right');
+   $table->setCols(['Name', 'Sts/Sz', 'Cst/Wge']);
+   $table->alignCol('Cst/Wge', 'right');
+   $table->alignCol('Sts/Sz', 'right');
    $table->setOptions('headingText', 'Technology');
-
+   if($$source{cbm}) {
+        $table->setColWidth('Name',10);
+        $table->setColWidth('Sts/Sz',10);
+   }
 
    if($structures_query->rows())
    {
@@ -3964,7 +3966,7 @@ sub cmd_report_tech
       while($row = $units_query->fetchrow_hashref())
       {
          $stats = sprintf('(%d, %d)', $$row{attack}, $$row{defense});
-         $table->addRow($$row{name}, $stats, sprintf('$%d/month',$$row{wage}));
+         $table->addRow($$row{name}, $stats, sprintf('$%d/mo',$$row{wage}));
       }
    }
 
@@ -3985,7 +3987,7 @@ sub cmd_report_space
    my $range;
 
    $table = new Text::ASCIITable;
-   $table->setCols(['ID', 'Owner', 'Unit', 'Target', 'Stats', 'Range']);
+   $table->setCols(['ID', 'Owner', 'Unit', 'Tgt', 'Sts', 'Rng']);
 
    $query = $SQL->prepare('SELECT unittype.name, unittype.attack, unittype.defense, space.id,space.distance, space.target_id, player.nick ' .
                           'FROM unittype, space, player ' .
@@ -4024,6 +4026,9 @@ sub cmd_report_space
             $table->addRow($$row{id}, $$row{nick}, $$row{name}, ' ', sprintf('(%d,%d)', $$row{attack}, $$row{defense}), $range);
          }
       }
+      if($$source{cbm}) {
+        $table->setColWidth('tgt',10);
+      }
       player_msg($source, $table->draw());
    }
    else
@@ -4053,15 +4058,15 @@ sub cmd_report_units
    }
 
    $table = new Text::ASCIITable;
-   $table->setCols(['Unit', 'Amount', 'Atk/Def', 'Wage']);
-   $table->alignCol('Amount', 'right');
+   $table->setCols(['Unit', 'Amt', 'Atk/Def', 'Wage']);
+   $table->alignCol('Amt', 'right');
    $table->alignCol('Atk/Def', 'right');
    $table->alignCol('Wage', 'right');
 
    while($row = $query->fetchrow_hashref())
    {
       $stats = sprintf('(%d,%d)', $$row{attack}, $$row{defense});
-      $table->addRow($$row{name}, $$row{amount}, $stats, sprintf('$%d/month',$$row{wage}));
+      $table->addRow($$row{name}, $$row{amount}, $stats, sprintf('$%d/mo',$$row{wage}));
    }
    player_msg($source, $table->draw());
 }
@@ -4084,12 +4089,23 @@ sub cmd_report_market
      
      $table = new Text::ASCIITable;
      $table->setOptions('headingText','Market');
-     $table->setCols(['ID','Product','Amount','Cost(each)','Total']);
-     $table->alignCol('Cost(each)','right');
-     $table->alignCol('Total','right');
+     if($$source{cbm}) {
+         $table->setCols(['ID','Prod','Amt','Cst(ea)']); #no total cost col on 40col mode
+     } else {
+         $table->setCols(['ID','Prod','Amt','Cst(ea)','Tot']);
+         $table->alignCol('Tot','right');
+     }
+     $table->alignCol('Cst(ea)','right');
+     if($$source{cbm}) {
+        $table->setColWidth('Prod',10);
+     }
      while($row = $query->fetchrow_hashref())
      {
-          $table->addRow($$row{id},$$row{name},$$row{amount},sprintf('$%d',$$row{sell}),sprintf('$%d',$$row{totalcost}));
+          if($$source{cbm}) {
+              $table->addRow($$row{id},$$row{name},$$row{amount},sprintf('$%d',$$row{sell}));    
+          } else {
+              $table->addRow($$row{id},$$row{name},$$row{amount},sprintf('$%d',$$row{sell}),sprintf('$%d',$$row{totalcost}));
+          }
      }
      player_msg($source, $table->draw());
 } 
@@ -4110,7 +4126,7 @@ sub cmd_report_winners
 	}
 	$table = new Text::ASCIITable;
 	$table->setOptions('headingText','Hall Of Fame');
-	$table->setCols(['#','Player','Country','HKs','Date']);
+	$table->setCols(['#','Plyr','Ctry','HKs','Date']);
 	$table->alignCol('#','right');
 	$table->alignCol('HKs','right');
 	
@@ -6581,7 +6597,7 @@ sub sql_log #$player_id, $text
    my $text = $_[2];
 
    my $query;
-
+   
    $query = $SQL->prepare('INSERT INTO log SET player_id=?, type=?, text=?, time=NOW()');
    $query->execute($player_id, $type, $text);
 }
@@ -7084,7 +7100,7 @@ sub rem_flag
    my $query;
 
    $query = $SQL->prepare('UPDATE player SET flags=replace(flags, ?, "") WHERE id=?');
-   $query->execute($flag, $player_id);
+   $query->execute(sprintf(",%s",$flag), $player_id);
 }
 
 sub sql_gettitle
@@ -7098,7 +7114,7 @@ sub sql_gettitle
                           'WHERE government.id = player.government_id AND player.id=?');
    $query->execute($player_id);
    $row = $query->fetchrow_hashref();
-
+   
    return sprintf('%s %s', $$row{title}, $$row{nick});
 }
 
@@ -7530,9 +7546,9 @@ sub endgame
    while($row = $query->fetchrow_hashref())
    {
       if($$row{id} != $winner) {
-         cmd_sendmail($$row{id},sprintf("%s has escaped Doomsday!\n\n--Doomsday", sql_gettitlecountry($winner)));
+         #cmd_sendmail($$row{id},sprintf("%s has escaped Doomsday!\n\n--Doomsday", sql_gettitlecountry($winner)));
       } else {
-         cmd_sendmail($$row{id},sprintf("You have escaped Doomsday!\n\n--Doomsday"));
+         #cmd_sendmail($$row{id},sprintf("You have escaped Doomsday!\n\n--Doomsday"));
       }
       sql_delete($$row{id});
       if($source = getsource($$row{id})) {
