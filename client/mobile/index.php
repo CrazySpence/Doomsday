@@ -1,6 +1,6 @@
 <?php
 include_once('inc/functions.php');
-include_once('inc/defs.php');
+include_once('inc/defs.inc');
 
 if($_POST['auth']) {
    $username = $_POST['username'];
@@ -21,11 +21,10 @@ if($_GET['logout']) {
     /* delete their session from database */
     if ($nick = chan_auth()) {
         doomsday_command("logout");
-        $db = mysql_connect($sqlhost,$sqluser,$sqlpass);
-        mysql_select_db($sqldb,$db);
-        mysql_query("DELETE FROM sessions WHERE nick='$nick'");
-        mysql_query("DELETE FROM session_log WHERE nickname='$nick'");
-        mysql_close($db);
+        $db = mysqli_connect($sqlhost,$sqluser,$sqlpass,$sqldb);
+        mysqli_query($db,"DELETE FROM sessions WHERE nick='$nick'");
+        mysqli_query($db,"DELETE FROM session_log WHERE nickname='$nick'");
+        mysqli_close($db);
         header("Location: " . $_SERVER["PHP_SELF"]);
     }
 }
@@ -146,10 +145,9 @@ if($_POST['new_login']) {
 } elseif($_GET['game']) {
     if($_GET['clear']) { 
         if ($nick = chan_auth()) {
-            $db = mysql_connect($sqlhost,$sqluser,$sqlpass);
-            mysql_select_db($sqldb,$db);
-            mysql_query("DELETE FROM session_log WHERE nickname='$nick' AND session_log.read='1'");
-            mysql_close($db);
+            $db = mysqli_connect($sqlhost,$sqluser,$sqlpass,$sqldb);
+            mysqli_query($db,"DELETE FROM session_log WHERE nickname='$nick' AND session_log.read='1'");
+            mysqli_close($db);
 	}
     }
     if($_POST["command"]) {
@@ -254,25 +252,23 @@ if($_POST['new_login']) {
     <?php 
 } elseif($_GET['log']) {
     blitzed_title("Site Changelog");
-    $db = mysql_connect($sqlhost,$sqluser,$sqlpass);
-    mysql_select_db($sqldb,$db);
+    $db = mysqli_connect($sqlhost,$sqluser,$sqlpass,$sqldb);
     $sql = "SELECT * from log ORDER BY modified DESC LIMIT 25";
-    $result = mysql_query($sql);
-    while ($row = mysql_fetch_array($result)) {
+    $result = mysqli_query($db,$sql);
+    while ($row = mysqli_fetch_array($result)) {
          printf("[%s] %s %s<br/>\n",$row["modified"],$row["user"],$row["message"]);
     }
-    mysql_close($db);
+    mysqli_close($db);
 } elseif($_GET['sidebar'] || $_POST['sidebar']) {
     if($nick = chan_auth()) {
-        $db = mysql_connect($sqlhost,$sqluser,$sqlpass);
-        mysql_select_db($sqldb,$db);
+        $db = mysqli_connect($sqlhost,$sqluser,$sqlpass,$sqldb);
         if($_POST['editside']) {
             $sql = sprintf("INSERT INTO player_sidebar SET player_nick='%s',command='%s',Description='%s'",$nick,$_POST['command'],$_POST['description']);
-            mysql_query($sql);
+            mysqli_query($db,$sql);
         }
         if($_POST['delete']) {
             $sql = sprintf("DELETE FROM player_sidebar WHERE id='%s' AND player_nick='%s'",$_POST['id'],$nick);
-            mysql_query($sql);
+            mysqli_query($db,$sql);
         }
         ?>
         <form name="sidebar" method=POST action="/">
@@ -292,9 +288,9 @@ if($_POST['new_login']) {
         <?php
         blitzed_title("Current saved commands");
         $sql = "SELECT id,command,Description FROM player_sidebar WHERE player_nick='$nick'";
-        $result = mysql_query($sql);
+        $result = mysqli_query($db,$sql);
         if($result) {
-            while($row = mysql_fetch_array($result)) {
+            while($row = mysqli_fetch_array($result)) {
             ?>
                 <form name="deletesidebar" method=POST action="/">
                 <input type=hidden name="id" value="<?php echo $row['id'] ?>"/>
@@ -305,15 +301,14 @@ if($_POST['new_login']) {
                 <?php
             }
         }
-        mysql_close($db);
+        mysqli_close($db);
     }
 } elseif($_GET["stats"]) {
-    $db = mysql_connect($sqlhost,$sqluser,$sqlpass);
-    mysql_select_db($sqldb,$db);
+    $db = mysqli_connect($sqlhost,$sqluser,$sqlpass,$sqldb);
     blitzed_title("Player Statistics");
     $sql = "SELECT count(id) AS total,sum(land) AS land,sum(money) AS money FROM player WHERE active=1;";
-    $result = mysql_query($sql);
-    $row = mysql_fetch_array($result);
+    $result = mysqli_query($db,$sql);
+    $row = mysqli_fetch_array($result);
     echo "<pre>";
     echo "Active players for this round : " . $row['total'] . "\n";
     echo "Total occupied land           : " . $row['land'] . " acres\n";
@@ -321,13 +316,13 @@ if($_POST['new_login']) {
     echo "</pre>";
     blitzed_title("Armed forces statistics");
     $sql = "SELECT SUM(unit.amount) AS amount FROM unit,unittype WHERE unit.unit_id=unittype.id AND unittype.type != 10";
-    $result = mysql_query($sql);
-    $row = mysql_fetch_array($result);
+    $result = mysqli_query($db,$sql);
+    $row = mysqli_fetch_array($result);
     echo "<pre>";
     echo "Global military units      : " . $row['amount'] . "\n";
     $sql = "SELECT sum(killed) AS killed,sum(launched) AS launched, sum(bomb_structure) AS structures, sum(bomb_civillian) AS civ_lost,sum(quest_complete) as quest,sum(quest_pk) as pk FROM player_statistics";
-    $result = mysql_query($sql);
-    $row = mysql_fetch_array($result);
+    $result = mysqli_query($db,$sql);
+    $row = mysqli_fetch_array($result);
     echo "Global military casualties : " . $row['killed'] . "\n";
     echo "Escape shuttles launched   : " . $row['launched'] . "\n";
     echo "</pre>";
@@ -341,26 +336,24 @@ if($_POST['new_login']) {
     echo "Raids successfully completed : " . $row['quest'] . "\n";
     echo "Raid player kill stats       : " . $row['pk'] . "\n";
     echo "</pre>";
-    mysql_close($db);     
+    mysqli_close($db);     
 } elseif($_GET['changelog']) {
-    $db = mysql_connect($sqlhost,$sqluser,$sqlpass);
-    mysql_select_db($sqldb,$db);
-    $sql ="SELECT * FROM changelog";
-    $result = mysql_query($sql);
+    $db = mysqli_connect($sqlhost,$sqluser,$sqlpass,$sqldb);
+    $sql = "SELECT * FROM changelog";
+    $result = mysqli_query($db,$sql);
     echo "<pre>\n";
-    while($row = mysql_fetch_array($result)) {
+    while($row = mysqli_fetch_array($result)) {
         echo $row["date"] . "\n" . htmlspecialchars($row["changes"]) . "\n\n";
     }
     echo "</pre>\n";
-    mysql_close($db);
+    mysqli_close($db);
 } elseif($_GET['gameconfig']) {
-    $db = mysql_connect($sqlhost,$sqluser,$sqlpass);
-    mysql_select_db($sqldb,$db);
+    $db = mysqli_connect($sqlhost,$sqluser,$sqlpass,$sqldb);
     $sql ="SELECT * FROM game_options";
-    $result = mysql_query($sql);
+    $result = mysqli_query($db,$sql);
     blitzed_title("Game Configuration");
     echo "<pre>\n";
-    while($row = mysql_fetch_array($result)) {
+    while($row = mysqli_fetch_array($result)) {
         echo "MP max                   : " . $row["mp_max"] . "\n";
         echo "MP growth                : " . $row["mp_growth"] . "\n";
         echo "MP bank max              : " . $row["mp_bankmax"] . "\n";
@@ -383,7 +376,7 @@ if($_POST['new_login']) {
         echo "Colonists per shuttle    : " . $row["colonist"] . "\n";
     }
     echo "</pre>\n";
-    mysql_close($db);    
+    mysqli_close($db);    
 } else {
     ?>
     <p>
@@ -402,15 +395,15 @@ echo("</div>\n");
   <div data-role="footer">
          <?php 
 if($nick = chan_auth()) {
-    $db = mysql_connect($sqlhost,$sqluser,$sqlpass);
-    mysql_select_db($sqldb,$db);
-    $result = mysql_query("SELECT command,Description FROM player_sidebar WHERE player_nick='$nick'");
+    $db = mysqli_connect($sqlhost,$sqluser,$sqlpass,$sqldb);
+    $result = mysqli_query($db,"SELECT command,Description FROM player_sidebar WHERE player_nick='$nick'");
     if($result) {
-        while($row = mysql_fetch_array($result)) {
+        while($row = mysqli_fetch_array($result)) {
             ?>
                 <a href="<?php echo $_SERVER["PHP_SELF"]; ?>?game=1&command=<?php echo $row['command'] ?>" class="ui-btn ui-corner-all ui-shadow ui-icon-carat-r ui-btn-icon-left"><?php echo $row['Description']; ?></a>
             <?php 
-        }
+	}
+	mysqli_close($db);
     }
 }
          ?>
