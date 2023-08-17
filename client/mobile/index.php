@@ -1,6 +1,6 @@
 <?php
 include_once('inc/functions.php');
-include_once('inc/defs.inc');
+include_once('inc/defs.php');
 
 if($_POST['auth']) {
    $username = $_POST['username'];
