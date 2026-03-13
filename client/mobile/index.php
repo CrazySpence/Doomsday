@@ -2,7 +2,7 @@
 include_once('inc/functions.php');
 include_once('inc/defs.php');
 
-if($_POST['auth']) {
+if(isset($_POST['auth'])) {
    $username = $_POST['username'];
    $password = $_POST['password']; 
    if(auth($username,$password) == 0)
@@ -11,13 +11,13 @@ if($_POST['auth']) {
           $drawlogin = 1;
 }
 
-if($_GET['login']) {
+if(isset($_GET['login'])) {
     if(!chan_auth()) {
         $drawlogin = 1;
     }
 }
 
-if($_GET['logout']) {
+if(isset($_GET['logout'])) {
     /* delete their session from database */
     if ($nick = chan_auth()) {
         doomsday_command("logout");
@@ -46,7 +46,7 @@ if($_GET['logout']) {
 <div data-role="page" data-theme="b">
    <div data-role="header" class="ui-content">
 <?php
-if($_GET['game'] && !isset($drawlogin)) {
+if(isset($_GET['game']) && !isset($drawlogin)) {
     ?><a href="?gamelog=1" class="ui-btn ui-corner-all ui-shadow ui-icon-eye ui-btn-icon-left ">Log</a><?php
 } elseif(!isset($drawlogin)) {
     ?><a href="?game=1" class="ui-btn ui-corner-all ui-shadow ui-icon-home ui-btn-icon-left ">Game</a>
@@ -73,13 +73,13 @@ if(!isset($drawlogin)) {
 if (!isset($_GET["startitem"]) || $_GET["startitem"] == 0) {
 
 echo "<div id='home-text' class='home-text' style='overflow: scroll;'>";
-if ($_POST["newplayer"]) {
+if (isset($_POST["newplayer"])) {
     $user = $_POST["username"];
     $fp = fsockopen($ddurl,$ddport,$errno,$errstr, 10);
     stream_set_timeout($fp, 1);
     if (!$fp) {
         echo "Could not connect to Doomsday server";
-        break;
+        return false;
     }
     fwrite($fp,"CLIENT SET SINGLE\n");
     fgets($fp);
@@ -110,7 +110,7 @@ if ($_POST["newplayer"]) {
     $drawlogin = 1;
 }
 
-if($_POST['new_login']) {
+if(isset($_POST['new_login'])) {
 ?>
     Welcome to Doomsday, Fill out the name of your intended player (no spaces) and click "Create Character". You will then see some 
     text relating to the creation of your user and a password which you should then log in with. Make sure to
@@ -125,7 +125,7 @@ if($_POST['new_login']) {
     <br/>
     </FORM>
     <?php
-} elseif ($drawlogin) {
+} elseif (isset($drawlogin)) {
 ?>
     <FORM method=POST action="<?php echo $_SERVER["PHP_SELF"]; ?>">
     <label for="username">Username:</label>
@@ -142,27 +142,31 @@ if($_POST['new_login']) {
     <?php
     showglobal(20);
     echo "</div>\n";    
-} elseif($_GET['game']) {
-    if($_GET['clear']) { 
+} elseif(isset($_GET['game'])) {
+    if(isset($_GET['clear'])) { 
         if ($nick = chan_auth()) {
             $db = mysqli_connect($sqlhost,$sqluser,$sqlpass,$sqldb);
             mysqli_query($db,"DELETE FROM session_log WHERE nickname='$nick' AND session_log.read='1'");
             mysqli_close($db);
 	}
     }
-    if($_POST["command"]) {
+    if(isset($_POST["command"])) {
         $formcommand = $_POST["command"];
-        doomsday_command($_POST["command"]);
-    } elseif($_GET["command"]) {
+    //    doomsday_command($_POST["command"]);
+    } 
+    if(isset($_GET["command"])) {
         $formcommand = $_GET["command"];
-        doomsday_command($_GET["command"]); 
-    } elseif($_POST["commandbutton"]) {
-        $formcommand = $_POST["commandbutton"];
-        doomsday_command($_POST["commandbutton"]);    
-    } else {
-        if(!$_GET['clear']) 
-            doomsday_command("motd");
+    //    doomsday_command($_GET["command"]); 
     }
+    if(isset($_POST["commandbutton"])) {
+        $formcommand = $_POST["commandbutton"];
+    //    doomsday_command($_POST["commandbutton"]);    
+    }
+    if ($formcommand == "") {
+        if(!isset($_GET['clear'])) 
+            $formcommand = "motd";
+    }
+    doomsday_command($formcommand);
     ?>
     <FORM method=POST id="ingame" name="ingame" action="?game=1">
     <INPUT type="text" id="command" name="command" value="" get-focus="true"/>
@@ -174,7 +178,7 @@ if($_POST['new_login']) {
     ?> 
     </FORM>
     <?php
-} elseif($_GET['menu']) {  
+} elseif(isset($_GET['menu'])) {  
 ?>
         <ul data-role="listview" data-inset="true">
            <li><a href="?sidebar=1&<?php echo $popup; ?>" class="ui-btn ui-corner-all ui-shadow ui-icon-edit ui-btn-icon-left ">Edit Shortcuts</a></li>
@@ -185,9 +189,9 @@ if($_POST['new_login']) {
            <li><a href="?logout=1&<?php echo $popup; ?>" class="ui-btn ui-corner-all ui-shadow ui-icon-power ui-btn-icon-left ">Logout</a></li>
         </ul>
 <?php
-} elseif($_GET['gamelog']) {
+} elseif(isset($_GET['gamelog'])) {
     doomsday_sessionlog();
-} elseif($_GET['about']) {
+} elseif(isset($_GET['about'])) {
     blitzed_title("About Doomsday");
     ?>
     <p>
@@ -226,9 +230,9 @@ if($_POST['new_login']) {
     </p>
     
 <?php
-} elseif($_GET['help']) {
+} elseif(isset($_GET['help'])) {
     Require "help.html";
-} elseif($_GET['features']) {
+} elseif(isset($_GET['features'])) {
     blitzed_title("Features");
     ?>
     <ul>
@@ -250,7 +254,7 @@ if($_POST['new_login']) {
         <li>Raid/Quests, where the players traverse a generated map to find a reward</li>
     </ul>
     <?php 
-} elseif($_GET['log']) {
+} elseif(isset($_GET['log'])) {
     blitzed_title("Site Changelog");
     $db = mysqli_connect($sqlhost,$sqluser,$sqlpass,$sqldb);
     $sql = "SELECT * from log ORDER BY modified DESC LIMIT 25";
@@ -259,7 +263,7 @@ if($_POST['new_login']) {
          printf("[%s] %s %s<br/>\n",$row["modified"],$row["user"],$row["message"]);
     }
     mysqli_close($db);
-} elseif($_GET['sidebar'] || $_POST['sidebar']) {
+} elseif(isset($_GET['sidebar']) || isset($_POST['sidebar'])) {
     if($nick = chan_auth()) {
         $db = mysqli_connect($sqlhost,$sqluser,$sqlpass,$sqldb);
         if($_POST['editside']) {
@@ -303,7 +307,7 @@ if($_POST['new_login']) {
         }
         mysqli_close($db);
     }
-} elseif($_GET["stats"]) {
+} elseif(isset($_GET["stats"])) {
     $db = mysqli_connect($sqlhost,$sqluser,$sqlpass,$sqldb);
     blitzed_title("Player Statistics");
     $sql = "SELECT count(id) AS total,sum(land) AS land,sum(money) AS money FROM player WHERE active=1;";
@@ -337,7 +341,7 @@ if($_POST['new_login']) {
     echo "Raid player kill stats       : " . $row['pk'] . "\n";
     echo "</pre>";
     mysqli_close($db);     
-} elseif($_GET['changelog']) {
+} elseif(isset($_GET['changelog'])) {
     $db = mysqli_connect($sqlhost,$sqluser,$sqlpass,$sqldb);
     $sql = "SELECT * FROM changelog";
     $result = mysqli_query($db,$sql);
@@ -347,7 +351,7 @@ if($_POST['new_login']) {
     }
     echo "</pre>\n";
     mysqli_close($db);
-} elseif($_GET['gameconfig']) {
+} elseif(isset($_GET['gameconfig'])) {
     $db = mysqli_connect($sqlhost,$sqluser,$sqlpass,$sqldb);
     $sql ="SELECT * FROM game_options";
     $result = mysqli_query($db,$sql);

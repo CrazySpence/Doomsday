@@ -6,7 +6,7 @@ function chan_auth() {
     /* login stuff starts here */
 
     $valid = 0;
-    $faqsessid = mysqli_real_escape_string($db,$_COOKIE[sess]);
+    if (isset($_COOKIE["sess"]) ) { $faqsessid = mysqli_real_escape_string($db,$_COOKIE["sess"]); }
 
     if ($faqsessid) {
         // They have a session ID.
@@ -103,7 +103,7 @@ function doomsday_command($text) {
       echo "Could not connect to Doomsday server";
       return;
    }
-   $buffer = sprintf("SESS %s %s\n",$_COOKIE[sess],$text);
+   $buffer = sprintf("SESS %s %s\n",$_COOKIE["sess"],$text);
    fwrite($fp,$buffer);
    echo "<div id='home-text' class='home-text' style='overflow: scroll;'><pre>"; //The class and style allow the pre block to move independant of the buttons
    while (($buffer = fgets($fp))) {
