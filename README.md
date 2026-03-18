@@ -5,7 +5,7 @@ Original Code by Erik Fears in 2003
 
 Continued by Phil Spencer from 2003-Present
 
-Game website: https://doomsday.philtopia.com
+Mobile Game website: https://doomsday.philtopia.com
 
 C64 BBS: doomsday.philtopia.com port 6400
 
